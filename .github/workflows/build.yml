@@ -13,6 +13,12 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+# Limiting workflow concurrency
+concurrency: 
+  # Grouping by workflow, triggering event and ref name.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
@@ -20,37 +26,38 @@ jobs:
     # The type of runner that the job will run on
     runs-on: windows-latest
 
+    env:
+      SOLUTION_FILENAME: 'Wrm.sln'
+
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout sources
-        uses: actions/checkout@v2
-        
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
+        uses: actions/checkout@v4.1.1
         
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1
+        uses: microsoft/setup-msbuild@v1.3.1
         
-      - name: Cache NuGet packages
-        uses: actions/cache@v2
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+      # Caching isn't efficient
+      # - name: Cache NuGet packages
+      #   uses: actions/cache@v3.3.2
+      #   with:
+      #     path: ~/.nuget/packages
+      #     key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-nuget-
         
       - name: Navigate to sources
         run: cd ${env:GITHUB_WORKSPACE}
 
       - name: Restore packages
-        run: nuget restore Wrm.sln
+        run: nuget restore ${{ env.SOLUTION_FILENAME }}
         
       - name: Build
-        run: msbuild.exe Wrm.sln /p:outdir="output" /p:platform="any cpu" /p:configuration="release" /nr:false /nologo      
+        run: msbuild.exe ${{ env.SOLUTION_FILENAME }} /p:outdir="output" /p:platform="any cpu" /p:configuration="release" /nr:false /nologo      
   
       - name: Publish artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3.1.3
         with:
           name: wrm
           path: Wrm.Console/output/*
